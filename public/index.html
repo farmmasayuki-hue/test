@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>統合マクロ経済・資本分析ダッシュボード</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f7f9; color: #333; margin: 0; padding: 20px; line-height: 1.6; }
+  .dashboard-container { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; }
+  .chart-panel { flex: 1; background: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+  .analysis-panel { flex: 1.2; background: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-y: auto; max-height: 85vh; }
+  
+  /* マークダウンのスタイル装飾 */
+  #report-content h1 { font-size: 1.4rem; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+  #report-content h2 { font-size: 1.1rem; color: #34495e; margin-top: 25px; border-left: 4px solid #e74c3c; padding-left: 10px; }
+  #report-content h3 { font-size: 1.05rem; color: #2980b9; margin-top: 20px; }
+  #report-content p { font-size: 0.95rem; }
+</style>
+</head>
+<body>
+
+  <div class="dashboard-container">
+    
+    <div class="chart-panel">
+      <h1 style="font-size: 1.4rem; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">📊 世界経済・為替チャート</h1>
+      <div class="tradingview-widget-container" style="height: 600px; width: 100%; margin-top: 20px;">
+        <div id="tradingview_usdjpy" style="height: calc(100% - 32px); width: 100%;"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+        <script type="text/javascript">
+          new TradingView.widget({
+            "autosize": true,
+            "symbol": "FX:USDJPY",
+            "interval": "M",
+            "timezone": "Asia/Tokyo",
+            "theme": "light",
+            "style": "1",
+            "locale": "ja",
+            "enable_publishing": false,
+            "hide_top_toolbar": false,
+            "hide_legend": false,
+            "save_image": false,
+            "container_id": "tradingview_usdjpy"
+          });
+        </script>
+      </div>
+    </div>
+
+    <div class="analysis-panel">
+      
+      <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <button id="btn-gov" onclick="switchMode('government')" style="flex: 1; padding: 15px; font-size: 1.1rem; font-weight: bold; border: 2px solid #3498db; background: #3498db; color: white; border-radius: 8px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 6px rgba(52, 152, 219, 0.3);">
+          🏛️ 政府・中央銀行モード
+        </button>
+        <button id="btn-cap" onclick="switchMode('capital')" style="flex: 1; padding: 15px; font-size: 1.1rem; font-weight: bold; border: 2px solid #8e44ad; background: white; color: #8e44ad; border-radius: 8px; cursor: pointer; transition: 0.3s;">
+          💰 巨大資本・財閥モード
+        </button>
+      </div>
+
+      <div id="control-panel-bg" style="background: #e8f4f8; padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 5px solid #2980b9; transition: 0.3s;">
+        <h3 id="panel-header" style="margin-top: 0; color: #2c3e50; font-size: 1.1rem;">🔍 マクロ経済・政策テーマの選択</h3>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+          <select id="event-select" style="padding: 10px; font-size: 1rem; flex: 1; border: 1px solid #bdc3c7; border-radius: 4px;"></select>
+          <button type="button"id="analyze-btn" onclick="analyzeSelected()" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;">
+            歴史を分析 ➔
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="custom-query" placeholder="自由に質問を入力" style="padding: 10px; font-size: 1rem; flex: 1; border: 1px solid #bdc3c7; border-radius: 4px;">
+          <button onclick="analyzeCustom()" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;">
+            独自に分析 ➔
+          </button>
+        </div>
+      </div>
+
+      <div id="report-content"></div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentMode = 'government';
+    const reportContent = document.getElementById('report-content');
+    const govBtn = document.getElementById('btn-gov');
+    const capBtn = document.getElementById('btn-cap');
+    const panelBg = document.getElementById('control-panel-bg');
+    const panelHeader = document.getElementById('panel-header');
+    const eventSelect = document.getElementById('event-select');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const customQuery = document.getElementById('custom-query');
+
+    function switchMode(mode) {
+      currentMode = mode;
+      if (mode === 'government') {
+        govBtn.style.background = '#3498db'; govBtn.style.color = 'white'; govBtn.style.boxShadow = '0 4px 6px rgba(52, 152, 219, 0.3)';
+        capBtn.style.background = 'white'; capBtn.style.color = '#8e44ad'; capBtn.style.boxShadow = 'none';
+        panelBg.style.background = '#e8f4f8'; panelBg.style.borderLeftColor = '#2980b9';
+        panelHeader.innerHTML = '🔍 マクロ経済・政策テーマの選択'; panelHeader.style.color = '#2c3e50';
+        analyzeBtn.style.background = '#3498db';
+        
+        eventSelect.innerHTML = `
+          <option value="1985年 プラザ合意における大蔵省と日銀の対立と円高容認">1985年 プラザ合意（大蔵省の計算と日銀の悪夢）</option>
+          <option value="1997年 アジア通貨危機と日本の橋本内閣・大蔵省の対応">1997年 アジア通貨危機（ヘッジファンドの猛威）</option>
+          <option value="2008年 リーマンショック時の白川日銀の対応と超円高">2008年 リーマンショック（世界同時株安と円高）</option>
+        `;
+        customQuery.placeholder = '自由に質問（例：1998年 ロシア財政危機の時の日本政府の対応は？）';
+      } else if (mode === 'capital') {
+        capBtn.style.background = '#8e44ad'; capBtn.style.color = 'white'; capBtn.style.boxShadow = '0 4px 6px rgba(142, 68, 173, 0.3)';
+        govBtn.style.background = 'white'; govBtn.style.color = '#3498db'; govBtn.style.boxShadow = 'none';
+        panelBg.style.background = '#f5eef8'; panelBg.style.borderLeftColor = '#8e44ad';
+        panelHeader.innerHTML = '💎 巨大資本・財閥テーマの選択'; panelHeader.style.color = '#8e44ad';
+        analyzeBtn.style.background = '#8e44ad';
+        
+        eventSelect.innerHTML = `
+          <option value="日本の三大財閥（三菱・三井・住友）の戦後解体と再編の生存戦略">日本の三大財閥の戦後解体と復活</option>
+          <option value="ロスチャイルド家とモルガン家の金融危機における資本防衛と影響力">ロスチャイルドとモルガンの資本防衛</option>
+          <option value="東アジアの江浙財閥の系譜と、TSMCやHuaweiなど現代テック企業への資本的繋がり">江浙財閥の系譜と現代テック企業（TSMC/Huawei等）</option>
+        `;
+        customQuery.placeholder = '自由に質問（例：第一次世界大戦時の渋沢栄一の資本戦略は？）';
+      }
+    }
+
+    async function fetchGeminiAnalysis(themeText) {
+      const loadingColor = currentMode === 'government' ? '#3498db' : '#8e44ad';
+      reportContent.innerHTML = `<div style="text-align: center; padding: 40px;"><p style="color: ${loadingColor}; font-size: 1.2em; font-weight: bold;">🔄 アナリスト（Gemini）が分析中...</p><p style="color: #7f8c8d; font-size: 0.9em;">「${themeText}」の歴史的背景を読み解いています...</p></div>`;
+
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ theme: themeText, mode: currentMode })
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error);
+        reportContent.innerHTML = marked.parse(data.text);
+      } catch (error) {
+        reportContent.innerHTML = `<p style="color: #e74c3c; font-weight: bold;">❌ エラーが発生しました: ${error.message}</p>`;
+      }
+    }
+
+    function analyzeSelected() { fetchGeminiAnalysis(eventSelect.value); }
+    function analyzeCustom() {
+      if (customQuery.value.trim() === "") return alert("分析したいテーマを入力してください！");
+      fetchGeminiAnalysis(customQuery.value);
+    }
+
+    // 初期化
+    window.addEventListener('DOMContentLoaded', () => { 
+      switchMode('government'); 
+      analyzeSelected(); 
+    });
+  </script>
+</body>
+</html>
